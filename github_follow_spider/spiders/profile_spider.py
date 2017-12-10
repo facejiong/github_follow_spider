@@ -1,4 +1,5 @@
 import scrapy
+import urllib.parse
 
 from scrapy.selector import Selector
 from scrapy.http import Request, FormRequest
@@ -37,13 +38,17 @@ class QuotesSpider(scrapy.Spider):
         登陆完成后从第一个用户开始爬数据
         """
         return [Request(
-            'https://github.com/facejiong?tab=following',
+            'https://github.com/opengiineer?tab=following&page=1',
             meta={'cookiejar': response.meta['cookiejar']},
             callback=self.parse_following,
         )]
 
     def parse_following(self, response):
-        print(response.url)
+        url_params_parse = urllib.parse.urlparse(response.url)
+        url_params_dict = urllib.parse.parse_qs(url_params_parse.query)
+
+        page = int(url_params_dict['page'][0], base=10)
+
         selector = Selector(response)
         username = selector.xpath(
             '//span[@class="p-nickname vcard-username d-block"]/text()'
@@ -54,21 +59,34 @@ class QuotesSpider(scrapy.Spider):
         following_urls = selector.xpath(
             '//div[@class="d-table col-12 width-full py-4 border-bottom border-gray-light"]/div[@class="d-table-cell col-9 v-align-top pr-3"]/a[@class="d-inline-block no-underline mb-1"]/@href'
         ).extract()
-        next_page = selector.css('.pagination')
+        next_page_exist = selector.xpath(
+            '//div[@class="pagination"]/a'
+        ).re(r'Next')
+
+        # following翻页
+        if next_page_exist:
+            next_page = selector.xpath(
+                '//div[@class="pagination"]/a/@href'
+            ).extract()
+            if page >= 2:
+                next_page_url = next_page[1]
+            else:
+                next_page_url = next_page[0]
+            
+            yield Request(
+                next_page_url,
+                meta={'cookiejar': response.meta['cookiejar']},
+                callback=self.parse_following,
+            )
+            print(next_page_url)
+            print(next_page)
+
+        # following列表请求
+        for following_url in following_urls:
+            complete_url = 'https://{}{}{}'.format(self.allowed_domains[0], following_url, '?tab=following&page=1')
+            print('complete_url:...', complete_url)
+            yield Request(complete_url,
+                          meta={'cookiejar': response.meta['cookiejar']},
+                          callback=self.parse_following)
         print(following_urls)
-        print(avatar)
-
-    # def start_requests(self):
-    #     urls = [
-    #         'http://quotes.toscrape.com/page/1/',
-    #         'http://quotes.toscrape.com/page/2/',
-    #     ]
-    #     for url in urls:
-    #         yield scrapy.Request(url=url, callback=self.parse)
-
-    # def parse(self, response):
-    #     page = response.url.split("/")[-2]
-    #     filename = 'quotes-%s.html' % page
-    #     with open(filename, 'wb') as f:
-    #         f.write(response.body)
-    #     self.log('Saved file %s' % filename)
+        print(next_page_exist)
