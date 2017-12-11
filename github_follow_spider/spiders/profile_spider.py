@@ -1,16 +1,21 @@
 import scrapy
-import urllib.parse
+import urllib
 
+from scrapy.exceptions import CloseSpider
 from scrapy.selector import Selector
 from scrapy.http import Request, FormRequest
 from github_follow_spider.items import ProfileItem
 from github_follow_spider.items import ImageItem
 
-class QuotesSpider(scrapy.Spider):
+class ProfileSpider(scrapy.Spider):
     name = "profile_spider"
     allowed_domains = ["github.com"]
     start_url = "https://github.com/facejiong"
     download_delay = 1
+
+    def __init__(self, *args, **kwargs):
+        super(ProfileSpider, self).__init__(*args, **kwargs)
+        self.profile_number = 0
     
     def start_requests(self):
         """
@@ -47,6 +52,10 @@ class QuotesSpider(scrapy.Spider):
         )]
 
     def parse_followers(self, response):
+        if self.profile_number >= 6000:
+            print('profile_number-----------:')
+            raise CloseSpider('profile number satisfy close')
+
         url_params_parse = urllib.parse.urlparse(response.url)
         url_params_dict = urllib.parse.parse_qs(url_params_parse.query)
 
@@ -87,6 +96,8 @@ class QuotesSpider(scrapy.Spider):
 
             image_item = ImageItem()
             image_item['image_urls'] = avatar
+            self.profile_number += 1
+            print('profile_number:', self.profile_number)
             yield image_item
 
         # followers翻页
