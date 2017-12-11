@@ -21,3 +21,8 @@ class ProfileItem(scrapy.Item):
     following_counter = scrapy.Field()
     avatar = scrapy.Field()
     pass
+
+class ImageItem(scrapy.Item):
+    image_urls = scrapy.Field()
+    images = scrapy.Field()
+    pass

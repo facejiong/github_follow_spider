@@ -4,11 +4,13 @@ import urllib.parse
 from scrapy.selector import Selector
 from scrapy.http import Request, FormRequest
 from github_follow_spider.items import ProfileItem
+from github_follow_spider.items import ImageItem
 
 class QuotesSpider(scrapy.Spider):
     name = "profile_spider"
     allowed_domains = ["github.com"]
     start_url = "https://github.com/facejiong"
+    download_delay = 1
     
     def start_requests(self):
         """
@@ -39,12 +41,12 @@ class QuotesSpider(scrapy.Spider):
         登陆完成后从第一个用户开始爬数据
         """
         return [Request(
-            'https://github.com/opengiineer?tab=following&page=1',
+            'https://github.com/facejiong?tab=followers&page=1',
             meta={'cookiejar': response.meta['cookiejar']},
-            callback=self.parse_following,
+            callback=self.parse_followers,
         )]
 
-    def parse_following(self, response):
+    def parse_followers(self, response):
         url_params_parse = urllib.parse.urlparse(response.url)
         url_params_dict = urllib.parse.parse_qs(url_params_parse.query)
 
@@ -62,7 +64,7 @@ class QuotesSpider(scrapy.Spider):
             ).extract()
             avatar = selector.xpath(
                 '//img[@class="avatar width-full rounded-2"]/@src'
-            ).extract()[0]
+            ).extract()
             repositories_counter = counters[0].strip()
             star_counter = counters[1].strip()
             followers_counter = counters[2].strip()
@@ -80,11 +82,14 @@ class QuotesSpider(scrapy.Spider):
             item['star_counter'] = star_counter
             item['followers_counter'] = followers_counter
             item['following_counter'] = following_counter
-            item['avatar'] = avatar
+            item['avatar'] = avatar[0]
             yield item
-            
 
-        # following翻页
+            image_item = ImageItem()
+            image_item['image_urls'] = avatar
+            yield image_item
+
+        # followers翻页
         next_page_exist = selector.xpath(
             '//div[@class="pagination"]/a'
         ).re(r'Next')
@@ -100,16 +105,16 @@ class QuotesSpider(scrapy.Spider):
             yield Request(
                 next_page_url,
                 meta={'cookiejar': response.meta['cookiejar']},
-                callback=self.parse_following,
+                callback=self.parse_followers,
             )
 
-        # following列表请求
-        following_urls = selector.xpath(
+        # followers列表请求
+        followers_urls = selector.xpath(
             '//div[@class="d-table col-12 width-full py-4 border-bottom border-gray-light"]/div[@class="d-table-cell col-9 v-align-top pr-3"]/a[@class="d-inline-block no-underline mb-1"]/@href'
         ).extract()
-        for following_url in following_urls:
-            complete_url = 'https://{}{}{}'.format(self.allowed_domains[0], following_url, '?tab=following&page=1')
+        for followers_url in followers_urls:
+            complete_url = 'https://{}{}{}'.format(self.allowed_domains[0], followers_url, '?tab=followers&page=1')
             # print('complete_url:.......', complete_url)
             yield Request(complete_url,
                           meta={'cookiejar': response.meta['cookiejar']},
-                          callback=self.parse_following)
+                          callback=self.parse_followers)
