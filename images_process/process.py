@@ -8,6 +8,7 @@ source_folder = '../images/full'
 destination_folder = '../images/des'
 binary_folder = '../images/binary/images.bin'
 binary_array = []
+
 is_destination_folder_exists = os.path.exists(destination_folder)
 if not is_destination_folder_exists:
     os.makedirs(destination_folder)
@@ -19,7 +20,7 @@ for filename in source_folder_dirs:
     l_128 = Image.open(source_folder + '/' + filename).resize((128, 128)).convert('L')
     # 存储生成的图片
     l_128.save(destination_folder + '/' + filename)
-    l_128_array = np.array(l_128,'f')
+    l_128_array = np.array(l_128, dtype=int)
     binary_array.append(l_128_array)
     # 存储
     print(filename)
